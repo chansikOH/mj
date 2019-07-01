@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" 
+	"http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+	<insert id="insertCustomer" parameterClass="customer">
+		insert into customers(
+			cust_id,
+			cust_pwd,
+			cust_name,
+			cust_email,
+			cust_phone_number,
+			cust_address,
+			cust_gender,
+			cust_birthday
+		) values (#id#, #pwd#, #name#, #email#, #phoneNumber#, #address#, #gender#, #birthday#)
+	</insert>
+	
+	<select id="getCustomerById" parameterClass="string" resultClass="customer">
+		select 
+			cust_id as id,
+			cust_pwd as pwd,
+			cust_name as name,
+			cust_email as email,
+			cust_phone_number as phoneNumber,
+			cust_address as address,
+			cust_gender as gender,
+			cust_birthday as birthday,
+			cust_create_date as createDate, 
+			cust_used_yn as usedYn, 
+			cust_status as status, 
+			cust_point as point, 
+			cust_gra as gra, 
+			cust_nujuk as nujuk,
+			cust_agree as agree
+		from 
+			customers
+		where 
+			cust_id = #id#
+			
+	</select>
+	
+	<select id="getCustomerByEmail" parameterClass="string" resultClass="customer">
+		select 
+			cust_id as id,
+			cust_pwd as pwd,
+			cust_name as name,
+			cust_email as email,
+			cust_phone_number as phoneNumber,
+			cust_address as address,
+			cust_gender as gender,
+			cust_birthday as birthday,
+			cust_create_date as createDate, 
+			cust_used_yn as usedYn, 
+			cust_status as status, 
+			cust_point as point, 
+			cust_gra as gra, 
+			cust_nujuk as nujuk,
+			cust_agree as agree
+		from 
+			customers
+		where 
+			cust_email = #value#
+			and cust_used_yn = 'Y'
+			
+	</select>
+	
+	<select id="getCustomer" parameterClass="string" resultClass="string">
+		select 
+			cust_id
+		from 
+			customers
+		where 
+			cust_email = #value#
+			and cust_used_yn = 'Y'
+	</select>
+	
+	<!-- 전체회원조회 -->
+	<select id="selectAllCustomers" resultClass="customer">
+		select 
+			cust_id as id,
+			cust_pwd as pwd,
+			cust_name as name,
+			cust_email as email,
+			cust_phone_number as phoneNumber,
+			cust_address as address,
+			cust_gender as gender,
+			cust_birthday as birthday,
+			cust_create_date as createDate, 
+			cust_used_yn as usedYn, 
+			cust_status as status, 
+			cust_point as point, 
+			cust_gra as gra, 
+			cust_nujuk as nujuk 
+		from 
+			customers
+	</select>
+	
+	<!-- 전체 회원수 -->
+	<select id="customerPagination" resultClass="int">
+		select
+			count(*)
+		from
+			customers
+	</select>
+	
+	<update id="updateStatus" parameterClass="customer" >
+		update customers
+		set
+			cust_pwd = #pwd#,
+			cust_name = #name#,
+			cust_email = #email#,
+			cust_phone_number = #phoneNumber#,
+			cust_address = #address#,
+			cust_gender = #gender#,
+			cust_birthday = #birthday#, 
+			cust_used_yn = #usedYn#,
+			cust_status = #status#
+		where 
+			cust_id = #id#
+	</update>
+	
+	<select id="adminGetCustomer" parameterClass="Criteria" resultClass="customer">
+	select
+	id,name,email,phoneNumber,address,gender, usedYn, status
+		from 
+			( select row_number() over (order by cust_create_date asc) as row_no,
+			cust_id as id,
+			cust_pwd as pwd,
+			cust_name as name,
+			cust_email as email,
+			cust_phone_number as phoneNumber,
+			cust_address as address,
+			cust_gender as gender,
+			cust_birthday as birthday,
+			cust_create_date as createDate, 
+			cust_used_yn as usedYn, 
+			cust_status as status, 
+			cust_point as point, 
+			cust_gra as gra, 
+			cust_nujuk as nujuk
+			from customers
+			) A
+	where
+			row_no >= #beginIndex#
+	and
+			row_no &lt;= #endIndex#
+	</select>
+</sqlMap>

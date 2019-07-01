@@ -1,0 +1,390 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" 
+	"http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>	
+	<select id="getProductByRange" parameterClass="Criteria" resultClass="product">
+		select 
+			no,
+			name,
+			price,
+			simple,
+			img,
+			stock,
+			discount,
+			saleYn,
+			usedYn,
+			createDate,
+			catNo,
+			orderCnt,
+			likesCnt,
+			(price - round(price*discount, -1)) discountPrice
+		from 
+			(select 
+				row_number() over (order by
+				<dynamic>
+					<isEqual property="sort" compareValue="default">
+						pro_no asc
+					</isEqual>
+					<isEqual property="sort" compareValue="ordercnt">
+						pro_order_cnt desc
+					</isEqual>
+					<isEqual property="sort" compareValue="date">
+						pro_create_date desc
+					</isEqual>
+					<isEqual property="sort" compareValue="likescnt">
+						pro_likes_cnt desc
+					</isEqual>
+					<isEqual property="sort" compareValue="lowprice">
+						pro_price asc
+					</isEqual>
+					<isEqual property="sort" compareValue="highprice">
+						pro_price desc
+					</isEqual>
+				</dynamic> ) rn,
+				pro_no no,
+				pro_name name,
+				pro_price price,
+				pro_simple simple,
+				pro_img img,
+				pro_stock stock,
+				pro_discount discount,
+				pro_sale_yn saleYn,
+				pro_used_yn usedYn,
+				pro_create_date createDate,
+				cat_no catNo,
+				pro_order_cnt orderCnt,
+				pro_likes_cnt likesCnt
+			from products
+			where pro_used_yn = 'Y'
+			<dynamic>
+				<isNotNull property="option">
+					<isEqual property="option" compareValue="cate">
+						and cat_no like #catNo# || '%'
+					</isEqual>
+					<isEqual property="option" compareValue="new">
+						and pro_create_date &lt;= sysdate and pro_create_date &gt;= add_months(sysdate, -1)
+					</isEqual>
+					<isEqual property="option" compareValue="best">
+						and pro_order_cnt != 0
+					</isEqual>
+					<isEqual property="option" compareValue="sale">
+						and pro_sale_yn = 'Y'
+					</isEqual>
+				</isNotNull>
+			</dynamic> )
+		where 
+			rn &gt;= #beginIndex# 
+		and 
+			rn &lt;= #endIndex#
+	</select>
+	
+	<select id="getProductCount" parameterClass="Criteria" resultClass="int">
+		select
+			count(*)
+		from
+			products
+		where 
+			pro_used_yn = 'Y'
+		<dynamic>
+			<isNotNull property="option">
+				<isEqual property="option" compareValue="cate">
+					and cat_no like #catNo# || '%'
+				</isEqual>
+				<isEqual property="option" compareValue="new">
+					and pro_create_date &lt;= sysdate and pro_create_date &gt;= add_months(sysdate, -1)
+				</isEqual>
+				<isEqual property="option" compareValue="best">
+					and pro_order_cnt != 0
+				</isEqual>
+				<isEqual property="option" compareValue="sale">
+					and pro_sale_yn = 'Y'
+				</isEqual>
+			</isNotNull>
+		</dynamic>
+	</select>
+	
+	<select id="getAllParentCategories" resultClass="category">
+		select
+			cat_no no,
+			cat_name name,
+			parent_cat_no parentNo,
+			cat_img img
+		from 
+			categories
+		where
+			parent_cat_no is null
+		order by 
+			cat_no 
+	</select>
+	
+	<select id="getAllCategoriesByParentNo" parameterClass="int" resultClass="category">
+		select
+			cat_no no,
+			cat_name name,
+			parent_cat_no parentNo,
+			cat_img img
+		from
+			categories
+		where 
+			parent_cat_no = #value#
+		order by 
+			cat_no
+	</select>
+	
+	<select id="getCategoryByNo" parameterClass="int" resultClass="category">
+		select
+			cat_no no,
+			cat_name name,
+			parent_cat_no parentNo,
+			cat_img img
+		from
+			categories
+		where
+			cat_no = #value#
+	</select>
+	
+	<select id="getProductByNo" parameterClass="int" resultClass="product">
+		select
+			pro_no no,
+			pro_name name,
+			pro_price price,
+			pro_simple simple,
+			pro_img img,
+			pro_stock stock,
+			pro_discount discount,
+			pro_sale_yn saleYn,
+			pro_used_yn usedYn,
+			pro_create_date createDate,
+			cat_no catNo,
+			pro_order_cnt orderCnt,
+			pro_likes_cnt likesCnt,
+			(pro_price - round(pro_price*pro_discount, -1)) discountPrice
+		from 
+			products
+		where
+			pro_no = #value#
+	</select>
+	
+	<select id="getRandomProductByParentCat" parameterClass="int" resultClass="product">
+		select 
+			no,
+			name,
+			price,
+			simple,
+			img,
+			stock,
+			discount,
+			saleYn,
+			usedYn,
+			createDate,
+			catNo,
+			orderCnt,
+			likesCnt,
+			(price - round(price*discount, -1)) discountPrice
+		from
+			(select
+				pro_no no,
+				pro_name name,
+				pro_price price,
+				pro_simple simple,
+				pro_img img,
+				pro_stock stock,
+				pro_discount discount,
+				pro_sale_yn saleYn,
+				pro_used_yn usedYn,
+				pro_create_date createDate,
+				cat_no catNo,
+				pro_order_cnt orderCnt,
+				pro_likes_cnt likesCnt
+			from
+				products
+			where
+				pro_used_yn = 'Y'
+			and
+				cat_no like #value# || '%'
+			order by 
+				dbms_random.value)
+		where
+			rownum &lt;= 5
+	</select>
+	
+	<select id="getReviewsByRange" parameterClass="Criteria" resultClass="review">
+		select
+			no,
+			content,
+			title,
+			likes,
+			"view",
+			img,
+			createDate,
+			proNo,
+			custId,
+			usedYn
+		from
+			(select 
+				row_number() over (order by 
+				<dynamic>
+					<isEqual property="sort" compareValue="date">
+						review_create_date desc
+					</isEqual>
+					<isEqual property="sort" compareValue="likes">
+						review_likes desc
+					</isEqual>
+					<isEqual property="sort" compareValue="view">
+						review_view desc
+					</isEqual>
+				</dynamic>) rn,
+				review_no no,
+				review_content content,
+				review_title title,
+				review_likes likes,
+				review_view "view",
+				review_img img,
+				review_create_date createDate,
+				pro_no proNo,
+				cust_id custId,
+				review_used_yn usedYn
+			from
+				reviews
+			where
+				pro_no = #productNo#)
+		where
+			usedYn = 'Y'
+		and
+			rn &gt;= #beginIndex# 
+		and 
+			rn &lt;= #endIndex#
+	</select>
+	
+	<select id="getReviewCountByProductNo" parameterClass="int" resultClass="int">
+		select 
+			count(*)
+		from
+			reviews
+		where
+			review_used_yn = 'Y'
+		and
+			pro_no = #value#
+	</select>
+	
+	<select id="getPqsByRange" parameterClass="Criteria" resultClass="pq">
+		select
+			no,
+			title,
+			contents,
+			createDate,
+			imgName,
+			proNo,
+			custId,
+			answer
+		from
+			(select 
+				row_number() over (order by pq_create_date desc) rn,
+				pq_no no,
+				pq_title title,
+				pq_contents contents,
+				pq_create_date createDate,
+				pq_img_name imgName,
+				pro_no proNo,
+				cust_id custId,
+				pq_answer answer
+			from 
+				products_questions
+			where
+				pro_no = #productNo#)
+		where 
+			rn &gt;= #beginIndex# 
+		and 
+			rn &lt;= #endIndex#
+	</select>
+	
+	<select id="getPqCountByProductNo" parameterClass="int" resultClass="int">
+		select
+			count(*)
+		from
+			products_questions
+		where
+			pro_no = #value#
+	</select>
+	
+	<insert id="insertPq" parameterClass="pq">
+		insert into products_questions(pq_no, pq_title, pq_contents, pq_img_name, pro_no, cust_id)
+		values(pro_question_seq.nextval, #title#, #contents#, #imgName#, #proNo#, #custId#)
+	</insert>
+	
+	<update id="updatePq" parameterClass="pq">
+		update 
+			products_questions
+		set
+			pq_title = #title#,
+			pq_contents = #contents#,
+			pq_img_name = #imgName#,
+			pro_no = #proNo#,
+			cust_id = #custId#,
+			pq_answer = #answer#
+		where
+			pq_no = #no#
+	</update>
+	
+	<select id="getPqByNo" parameterClass="int" resultClass="pq">
+		select
+			pq_no no,
+			pq_title title,
+			pq_create_date createDate,
+			pq_contents contents,
+			pq_img_name imgName,
+			pro_no proNo,
+			cust_id custId,
+			pq_answer answer
+		from 
+			products_questions
+		where
+			pq_no = #value#
+	</select>
+	
+	<!--상품변경 기능 -->
+	<update id="updateProduct" parameterClass="product">
+		update 
+			products
+		set 
+			PRO_NAME =#name#,
+			PRO_PRICE=#price#,
+			PRO_SIMPLE=#simple#,
+			PRO_IMG=#img#,
+			PRO_STOCK=#stock#,
+			PRO_DISCOUNT=#discount#,
+			PRO_SALE_YN=#saleYn#,
+			PRO_USED_YN=#usedYn#,
+			CAT_NO=#catNo#,
+			pro_order_cnt=#orderCnt#,
+			pro_likes_cnt=#likesCnt#
+		where 
+			pro_no = #no#
+	</update>
+	<!-- 상품 등록기능 -->
+	<insert id="insertProduct" parameterClass="product">
+		insert into 
+			products(
+				pro_no, 
+				pro_name, 
+				pro_price, 
+				pro_simple, 
+				pro_img, 
+				pro_stock, 
+				pro_discount, 
+				pro_sale_yn, 
+				pro_used_yn, 
+				cat_no)
+		values(
+			products_seq.nextval,  
+			#name#, 
+			#price#, 
+			#simple#, 
+			#img#, 
+			#stock#, 
+			#discount#, 
+			#saleYn#, 
+			#usedYn#, 
+			#catNo#)
+	</insert>
+</sqlMap>

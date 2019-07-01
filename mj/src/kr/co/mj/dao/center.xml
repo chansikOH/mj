@@ -1,0 +1,518 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" 
+	"http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+
+<update id="orderStatusUpdate" parameterClass="int">
+update orders
+set order_status = '배송중'
+where order_no = #value#
+</update>
+<!-- (관리자페이지) 주문관리 주문번호별 주문한 물건 뽑기  -->
+ <select id="orderdetailList" parameterClass="int" resultClass="orderList">
+	select b.PRO_NAME as proName, a.CART_AMOUNT as cartAmount, b.PRO_PRICE as proPrice ,b.PRO_IMG as proImg,b.pro_no as proNo 
+	from ORDER_PRO a , PRODUCTS b
+	where a.PRO_NO = b.PRO_NO
+	and a.ORDER_NO = #value#
+</select> 
+
+<select id="getStautsCount" parameterClass="Criteria" resultClass="int">
+ 	select count(*)
+ 	from order_custid_view
+ 	where 1=1
+ <dynamic>
+		<isNotEqual property="status" compareValue="1">
+				and order_status = #status#
+		</isNotEqual>
+	</dynamic>
+</select>
+
+<!--(관리자페이지) 주문관리에 status 별로 뽑는 쿼리문. -->
+<select id="getStatus" parameterClass="Criteria" resultClass="orderList">
+	select
+		order_no as orderNo,
+		pro_name as proName,
+		order_status as orderStatus,
+		order_create_date as orderCreateDate,
+		cust_id as custId,
+		cnt as cnt,
+		orderprice as orderPrice
+	from(select row_number() over(order by order_create_date desc
+	)row_no,A.*
+	from ORDER_CUSTID_VIEW A
+	where 1 = 1
+	<dynamic>
+		<isNotEqual property="status" compareValue="1">
+				and order_status = #status#
+		</isNotEqual>
+	</dynamic>
+	)
+	where row_no >= #beginIndex# and row_no &lt; = #endIndex#	
+</select> 
+
+<insert id="noticeWriter" parameterClass="Not">
+insert into notice(not_no,not_title,not_content,not_grade)
+values (notice_seq.nextval,#title#,#content#,#grade#)
+</insert>
+
+<select id="nextPrev" parameterClass="int" resultClass="Not">
+select nvl(next,0)next,nextTitle,nvl(prev,0)prev,prevTitle
+from (select not_no, lead(not_no,1) over(order by not_no) next,
+					 lead(not_title,1)over(order by not_no) nextTitle,
+					 lag(not_no,1) over(order by not_no) prev,
+					 lag(not_title,1)over(order by not_no) prevTitle from notice)
+where not_no = #value#
+</select>
+
+<select id="notdetail" parameterClass="int" resultClass="Not">
+	select
+		not_no as no,
+		not_title as title,
+		not_content as content,
+		not_grade as grade,
+		not_create_date as createdate,
+		views as views
+	from 
+		notice
+	where
+		not_no = #value#
+</select>
+ 
+ <select id="qnadetail" parameterClass="int" resultClass="qna">
+	select
+		oq_no as no,
+		oq_category as category,
+		oq_content as contents,
+		oq_titie as title,
+		oq_create_date as createDate,
+		cust_id as cusId,
+		ans_qna as ans
+	from
+		one_qna
+	where
+		oq_no = #value#
+</select>
+
+<update id="adminQnaAdd" parameterClass="qna">
+	update one_qna
+	set ans_qna = #ans#
+	where oq_no = #no#
+</update>
+
+<insert id="qnaAdd" parameterClass="qna">
+insert into one_qna(oq_no,oq_category,oq_content,oq_titie,cust_id,order_no)
+values (one_qna_seq.nextval, #category# , #contents# , #title# , #cusId#, #orderNo#)
+</insert>
+
+<!-- 세션id를 이용하여 주문조회하는 쿼리 -->
+<select id="getOrder" parameterClass="string" resultClass="orderList">
+	select order_no as orderNo,
+			order_create_date as orderCreateDate,
+			pro_name as proName,
+			cnt as cnt,
+			orderprice as orderprice,
+			cart_amount as cartAmount
+	from ORDER_CUSTID_VIEW
+		where cust_id= #value#
+		and ORDER_STATUS &lt;> '주문취소'
+		
+</select>
+
+<!-- 1:1문의 불러오기 페이징처리 -->
+<select id="getQnaCount" parameterClass="string" resultClass="int">
+	select count(*)
+	from one_qna
+	where cust_id like '%' || #id# || '%'
+	order by oq_no
+</select>
+
+<!-- 1:1문의 글 불러오기 -->
+<select id="getQnaList" parameterClass="map" resultClass="qna">
+select
+	no,category,contents,title,createDate,cusId,orderNo,ans
+		from (select row_number() over (order by oq_no desc) row_no,
+			oq_no as no,
+			oq_category as category,
+			oq_content as contents,
+			oq_titie as title,
+			oq_create_date as createDate,
+			cust_id as cusId,
+			order_no as orderNo,
+			ans_qna as ans
+	from
+			one_qna
+	where
+			cust_id = #id#)
+	
+	where
+			row_no >= #begin#
+	and
+			row_no &lt;= #end#
+	order by 
+			no desc
+</select>
+<!-- 어드민으로 로그인시 전체 1:1 문의 전부 뽑기 -->
+<!-- <select id="adminGetList" parameterClass="map" resultClass="qna">
+select
+	no,category,contents,title,createDate,cusId,orderNo,ans
+		from (select row_number() over (order by oq_no) row_no,
+			oq_no as no,
+			oq_category as category,
+			oq_content as contents,
+			oq_titie as title,
+			oq_create_date as createDate,
+			cust_id as cusId,
+			order_no as orderNo,
+			ans_qna as ans
+	from
+			one_qna)
+	where
+			row_no >= #begin#
+	and
+			row_no &lt;= #end#
+	order by 
+			no desc
+</select> -->
+<select id="getAdminQnaList" parameterClass="map" resultClass="qna">
+	select
+	no,category,contents,title,createDate,cusId,orderNo,ans
+		from (select row_number() over (order by oq_no desc) row_no,
+			oq_no as no,
+			oq_category as category,
+			oq_content as contents,
+			oq_titie as title,
+			oq_create_date as createDate,
+			cust_id as cusId,
+			order_no as orderNo,
+			ans_qna as ans
+	from
+			one_qna)
+	where
+			row_no >= #begin#
+	and
+			row_no &lt;= #end#
+	order by 
+			no desc
+</select>
+
+<select id="getAdiminQnaCount" resultClass="int">
+	select count(*)
+	from one_qna
+	order by oq_no
+</select>
+<!-- 자주묻는 질문 리스트 총 개수 구하기  -->
+<select id="getFreRecords" parameterClass="Criteria" resultClass="int">
+		select count(*)
+		from FREQUENT_QUESTION
+		where 1 = 1
+		<dynamic>
+				<isNotNull property="category">
+					<isEqual property="category" compareValue="회원">
+						and fq_category like '%' || #category# || '%'
+					</isEqual>
+					<isEqual property="category" compareValue="주문">
+						and fq_category like '%' || #category# || '%'
+					</isEqual>
+					<isEqual property="category" compareValue="취소">
+						and fq_category like '%' || #category# || '%'
+					</isEqual>
+					<isEqual property="category" compareValue="배송">
+						and fq_category like '%' || #category# || '%'
+					</isEqual>
+					<isEqual property="category" compareValue="쿠폰">
+						and fq_category like '%' || #category# || '%'
+					</isEqual>
+					<isEqual property="category" compareValue="서비스">
+						and fq_category like '%' || #category# || '%'
+					</isEqual>
+				</isNotNull>
+			<isNotNull property="keyword">
+				<isNotEmpty property="keyword">
+					and fq_title like '%' || #keyword# || '%'
+				</isNotEmpty>
+			</isNotNull>
+			</dynamic>	
+</select>
+<!-- 자주묻는 질문 리스트  -->
+<select id="getFreList" parameterClass="Criteria" resultClass="Fre"> 
+		select
+		fq_no as no,
+		fq_title as title,
+		fq_content as contents,
+		fq_category as category
+		from (select row_number() over(order by fq_no asc
+	) row_no, A.*
+	from FREQUENT_QUESTION A
+	where 1 = 1
+		<dynamic>
+				<isNotNull property="category">
+					<isEqual property="category" compareValue="회원">
+						and fq_category like '%' || #category# || '%'
+					</isEqual>
+					<isEqual property="category" compareValue="주문">
+						and fq_category like '%' || #category# || '%'
+					</isEqual>
+					<isEqual property="category" compareValue="취소">
+						and fq_category like '%' || #category# || '%'
+					</isEqual>
+					<isEqual property="category" compareValue="배송">
+						and fq_category like '%' || #category# || '%'
+					</isEqual>
+					<isEqual property="category" compareValue="쿠폰">
+						and fq_category like '%' || #category# || '%'
+					</isEqual>
+					<isEqual property="category" compareValue="서비스">
+						and fq_category like '%' || #category# || '%'
+					</isEqual>
+				</isNotNull>
+				<isNotEmpty property="keyword">
+					and fq_title like '%' || #keyword# || '%'
+				</isNotEmpty>
+		</dynamic> 
+	)
+	where row_no >= #beginIndex# and row_no &lt; = #endIndex#	
+		
+</select>
+<!-- 공지사항 글 삭제 -->
+<delete id="noticeDelete" parameterClass="int">
+	delete from notice where not_no = #value#
+</delete>
+
+<select id="getNoticeList" parameterClass="Criteria" resultClass="Not"> 
+	select
+		not_no as no,
+		not_title as title,
+		not_content as content,					
+		not_grade as grade,
+		not_create_date as createdate,
+	    views as views
+	from (select row_number() over(order by not_grade asc , not_no desc
+	) row_no, A.*
+	from notice A
+	where 1 = 1
+	<dynamic>
+			<isNotNull property="option">
+				<isEqual property="option" compareValue="t">
+					and not_title like '%' || #keyword# || '%'
+				</isEqual>
+				<isEqual property="option" compareValue="c">
+					and not_content like '%' || #keyword# || '%'
+				</isEqual>
+				<isEqual property="option" compareValue="tc">
+					and (not_title like '%' || #keyword#  || '%' or not_content like '%' || #keyword# || '%')
+				</isEqual>
+			</isNotNull>
+			
+		</dynamic>
+	)
+	where row_no >= #beginIndex# and row_no &lt; = #endIndex#
+</select>
+
+<select id="getRecords" parameterClass="Criteria" resultClass="int">
+		select count(*)
+		from notice
+		where 1 = 1
+		<dynamic>
+			<isNotNull property="option">
+				<isEqual property="option" compareValue="t">
+					and not_title like '%' || #keyword# || '%'
+				</isEqual>
+				<isEqual property="option" compareValue="c">
+					and not_content like '%' || #keyword# || '%'
+				</isEqual>
+				<isEqual property="option" compareValue="tc">
+					and (not_title like '%' || #keyword#  || '%' or not_content like '%' || #keyword# || '%')
+				</isEqual>
+			</isNotNull>
+			
+		</dynamic>
+				
+</select>
+
+<!-- 내용으로 검색한 공지사항 총 개수 구하기 -->
+<!-- <select id="getNotByContentCount" parameterClass="String" resultClass="int">
+	select
+		count(*)
+	from
+		notice
+	where
+		not_content like '%'||#value#||'%'
+	order by
+		not_no desc
+</select> -->
+
+<!--  제목으로 검색한 공지사항 총 개수 구하기 -->
+<!-- <select id="getNotByTitleCount"  parameterClass="String" resultClass="int">
+	select
+		count(*)
+	from
+		notice
+	where
+		 not_title like '%'||#value#||'%'
+		 
+	order by
+		not_no desc
+</select> -->
+<!-- 제목으로 공지사항 글 검색하기 -->
+<!-- <select id="getNotByTitle" parameterClass="map" resultClass="Not">
+select
+		no,
+		title,
+		content,
+		grade,
+		createdate,
+		views
+		
+		from 
+			(select 
+                    row_number() over (order by not_no ) row_no, 
+						not_no as no,
+						not_title as title,
+						not_content as content,					
+						not_grade as grade,
+						not_create_date as createdate,
+						views as views
+			from 
+						notice) 
+		where 
+			row_no &gt;= #begin#
+    	and
+			row_no &lt;= #end#
+		AND
+			title like '%'||#content#||'%'
+		order by 
+			no desc
+</select> -->
+<!-- 내용으로 공지사항 글 검색하기  -->
+<!-- <select id="getNotById" parameterClass="map" resultClass="Not">
+select
+		no,
+		title,
+		content,
+		grade,
+		createdate,
+		views
+		
+		from 
+			(select 
+                    row_number() over (order by not_no ) row_no, 
+						not_no as no,
+						not_title as title,
+						not_content as content,					
+						not_grade as grade,
+						not_create_date as createdate,
+						views as views
+			from 
+						notice) 
+		where 
+			row_no &gt;= #begin#
+    	and
+			row_no &lt;= #end#
+		AND
+			content like '%'||#content#||'%'
+		order by 
+			no desc
+</select>
+ -->
+<!-- 공지사항 내부 글 불러오기 -->
+<select id="getNotByNoDetail" parameterClass="int" resultClass="Not">
+select
+	not_no as no,
+	not_title as title,
+	not_content as content,		
+	not_create_date as createdate,
+	views as views
+from
+	notice
+where
+	not_no = #value#
+</select>
+
+<!-- 공지사항 글 조회수 증가 -->
+<update id="notViewUpdate" parameterClass="int">
+update
+	notice
+set 
+	views = views + 1
+where
+	not_no = #value#
+
+
+</update>
+
+<!-- 공지사항 총 게시물 페이징 처리하여 받기  -->
+<!-- <select id="getNotByRange" parameterClass="map" resultClass="Not">
+	select
+		no,
+		title,
+		content,
+		grade,
+		createdate,
+		views
+		
+		from 
+			(select 
+                    row_number() over (order by not_no ) row_no, 
+						not_no as no,
+						not_title as title,
+						not_content as content,					
+						not_grade as grade,
+						not_create_date as createdate,
+						views as views
+			from 
+						notice) 
+		where 
+			row_no &gt;= #begin#
+    	and
+			row_no &lt;= #end#
+		order by 
+			grade , no desc
+</select> -->
+
+
+<!-- 공지사항 총 게시물 구하기 -->
+<!-- <select id="getNotCount" resultClass="int">
+select
+	count(*)
+from
+	notice
+order by
+	not_no desc
+
+</select> -->
+
+
+<!-- 자주묻는질문 페이지 총 개수 구하기 -->
+	<select id="getFreCount" resultClass="int"> 
+		select
+			count(*)
+		from 
+			frequent_question
+		order by 
+			 fq_no desc
+	</select>
+
+<!-- 자주묻는질문 페이징 처리하여 리스트 넘겨받기  -->
+<select id="getFreByRange" parameterClass="map" resultClass="Fre"> 
+		select 
+			 no,
+			title,
+			contents,
+			category
+		from 
+			(select 
+                    row_number() over (order by fq_no desc) row_no, 
+						fq_no as no,
+						fq_title as title,
+						fq_content as contents,
+						fq_category as category
+			from 
+						FREQUENT_QUESTION) 
+		where 
+			row_no &gt;= #begin#
+    	and
+			row_no &lt;= #end#
+		order by 
+			no desc
+	</select>
+</sqlMap>

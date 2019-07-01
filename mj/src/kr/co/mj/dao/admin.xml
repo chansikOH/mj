@@ -1,0 +1,397 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" 
+	"http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+<!-- 세일상품 랜덤 조회 -->
+<select id="getMainProductBySale" resultClass="product">
+	SELECT 		
+				no,
+				name,
+				price,
+				simple,
+				img,
+				stock,
+				discount,
+				saleYn,
+				usedYn,
+				createDate,
+				catNo,
+				orderCnt,
+				likesCnt,
+				(price - round(price*discount, -1)) discountPrice
+	FROM   
+			(	SELECT 
+	    			pro_no no,
+	    			pro_name name,
+					pro_price price,
+					pro_simple simple,
+					pro_img img,
+					pro_stock stock,
+					pro_discount discount,
+					pro_sale_yn saleYn,
+					pro_used_yn usedYn,
+					pro_create_date createDate,
+					cat_no catNo,
+					pro_order_cnt orderCnt,
+					pro_likes_cnt likesCnt
+				FROM  
+					PRODUCTS
+				where 
+					PRO_SALE_YN = 'Y'
+				and
+					pro_used_yn = 'Y'
+				ORDER BY 
+					DBMS_RANDOM.VALUE)
+	WHERE  
+		rownum  &lt;= 4
+</select>
+<!-- 검색어에 맞는 자료 수 조회하기 -->
+
+<select id="getMainSearchRecords" parameterClass="Criteria" resultClass="int">
+	select
+		count(*)
+	from
+		products
+	where
+		pro_used_yn ='Y'
+	and
+		UPPER(pro_name) like UPPER('%' || #keyword# || '%')
+</select>
+
+<!-- 인덱스에 해당하는 상품 조회하기 -->
+<select id="getSearchProducts" parameterClass="Criteria" resultClass="product">
+	select
+		pro_no no,
+ 		pro_name name,
+		pro_price price,
+		pro_simple simple,
+		pro_img img,
+		pro_stock stock,
+		pro_discount discount,
+		pro_sale_yn saleYn,
+		pro_used_yn usedYn,
+		pro_create_date createDate,
+		cat_no catNo,
+		pro_order_cnt orderCnt,
+		pro_likes_cnt likesCnt,
+		(pro_price - round(pro_price*pro_discount, -1)) discountPrice
+	from
+		(select 
+			row_number() over(ORDER by pro_create_date desc) as row_no, A.*
+		 from 
+		 	PRODUCTS A 
+		 where
+		 	PRO_USED_YN='Y'
+		 and 
+			UPPER(pro_name) like UPPER('%' || #keyword# || '%'))
+	where
+		row_no >= #beginIndex#
+	and
+		row_no &lt;=#endIndex#
+		
+</select>
+
+<!--조건에 맞는 자료수 찾기  -->
+<select id="getConditionRecords" parameterClass="Criteria" resultClass="int">
+		select count(*)
+		from products
+		where 1 = 1
+		<dynamic>
+			<isEqual property="catNo" compareValue="10">
+			and cat_no in(select cat_no from CATEGORIES where PARENT_CAT_NO =10)
+			</isEqual>
+			<isEqual property="catNo" compareValue="20">
+			and cat_no in(select cat_no from CATEGORIES where PARENT_CAT_NO =20)
+			</isEqual>
+			<isEqual property="catNo" compareValue="30">
+			and cat_no in(select cat_no from CATEGORIES where PARENT_CAT_NO =30)
+			</isEqual>
+			<isEqual property="catNo" compareValue="40">
+			and cat_no in(select cat_no from CATEGORIES where PARENT_CAT_NO =40)
+			</isEqual>
+			<isEqual property="catNo" compareValue="50">
+			and cat_no in(select cat_no from CATEGORIES where PARENT_CAT_NO =50)
+			</isEqual>
+			<isNotNull property="keyword">
+			and UPPER(pro_name) like UPPER('%' || #keyword# || '%')
+			</isNotNull>
+		</dynamic>
+	</select>
+	
+<!-- 부모 카테고리 모두 조회하기 -->
+<select id="selectAllParentCategories" resultClass="Category">
+	select 
+		CAT_NO as no,
+		CAT_NAME as name,
+		PARENT_CAT_NO as parentNoYn,
+		CAT_IMG as img
+	from
+		categories
+	where
+		parent_cat_no is null
+
+</select>
+	
+<!-- 조건에맞는 상품 조회하기 (인덱스받아서) -->
+<select id="getConditionProducts" parameterClass="Criteria" resultClass="product">
+	select 
+		row_no,
+		no,
+		name,
+		price,
+		simple,
+		img,
+		stock,
+		discount,
+		saleYn,
+		usedYn,
+		createDate,
+		catNo,
+		orderCnt,
+		likesCnt
+	FROM
+		(select 
+			row_number() over(ORDER by 
+			<dynamic>
+				<isEqual property="sort" compareValue="CDU">
+				pro_create_date desc, pro_no desc
+				</isEqual>
+				<isEqual property="sort" compareValue="CDD">
+				pro_create_date asc, pro_no 
+				</isEqual>
+				<isEqual property="sort" compareValue="ODU">
+				pro_order_cnt desc, pro_no desc
+				</isEqual>
+				<isEqual property="sort" compareValue="ODD">
+				pro_order_cnt asc, pro_no 
+				</isEqual>
+				<isEqual property="sort" compareValue="FVU">
+				pro_likes_cnt desc, pro_no desc
+				</isEqual>
+				<isEqual property="sort" compareValue="FVD">
+				pro_likes_cnt asc, pro_no
+				</isEqual>
+			</dynamic>
+				) as row_no, 
+				A.PRO_NO as no,
+				A.PRO_NAME as name,
+				A.PRO_PRICE as price,
+				A.PRO_SIMPLE as simple,
+				A.PRO_IMG as img,
+				A.PRO_STOCK as stock,
+				A.PRO_DISCOUNT as discount,
+				A.PRO_SALE_YN as saleYn,
+				A.PRO_USED_YN as usedYn,
+				A.PRO_CREATE_DATE as createDate,
+				A.CAT_NO as catNo,
+				A.pro_order_cnt orderCnt,
+				A.pro_likes_cnt likesCnt
+		from 
+			PRODUCTS A
+		where 
+			cat_no in (select cat_no
+				      from CATEGORIES 
+				      where 1 = 1
+					  <dynamic>
+					  	<isNotEqual property="catNo" compareValue="1">
+					  	and PARENT_CAT_NO =#catNo#
+					  	</isNotEqual>
+						</dynamic>
+					  )
+			<dynamic>
+		 		<isNotNull property="keyword">
+			and
+				UPPER(pro_name) like UPPER('%' || #keyword# || '%')
+				</isNotNull>
+			</dynamic>		  
+					  )
+	WHERE
+	row_no >=#beginIndex#
+	AND
+	row_no &lt;=#endIndex#
+</select>
+
+<!-- 조건에맞는 상품문의 갯수 조회 -->
+<select id="getConditionProQnARecords" parameterClass="Criteria" resultClass="int">
+	select
+		count(*) 
+	from
+		products_questions
+	where
+		1=1
+	<dynamic>
+		<isEqual property="sort" compareValue="답변대기중">
+			and pq_answer is null
+		</isEqual>
+		<isEqual property="sort" compareValue="답변완료">
+			and pq_answer is not null
+		</isEqual>
+		<isEqual property="sort" compareValue="전체">
+		</isEqual>
+	</dynamic>
+	
+</select>
+<!-- 조건에 맞는 상품문의 조회 (인덱스받아서)-->
+<select id="getConditionProQnA" parameterClass="Criteria" resultClass="pq">
+	SELECT 
+		no, 
+		title, 
+		createDate, 
+		contents, 
+		imgName, 
+		proNo, 
+		custId, 
+		answer
+	from (	SELECT
+				ROW_NUMBER() over (order by pq_create_date desc) row_no , PQ_NO no, PQ_TITLE title, PQ_CREATE_DATE createDate, PQ_CONTENTS contents, PQ_IMG_NAME imgName, PRO_NO proNo, CUST_ID custId, PQ_ANSWER answer
+			from
+				PRODUCTS_QUESTIONS
+			WHERE 1=1
+				<dynamic>
+					<isEqual property="sort" compareValue="답변대기중">
+						and pq_answer is null
+					</isEqual>
+					<isEqual property="sort" compareValue="답변완료">
+						and pq_answer is not null
+					</isEqual>
+				</dynamic>
+				)	
+	where
+		row_no >=#beginIndex#
+	and
+		row_no &lt;=#endIndex#
+</select>
+
+<!--베스트상품 탑20개 중에 랜덤 4개 조회하기 -->  
+<select id="getMainProductByBest" resultClass="product" >
+   SELECT       
+         no,
+         name,
+         saleYn,
+         img,
+         price,
+         usedYn,
+         catNo,
+         orderCnt,
+         discount,
+         (price - round(price*discount, -1)) discountPrice,
+         likesCnt
+   FROM   
+      (SELECT 
+         pro_no no, 
+         pro_name name,
+         pro_sale_yn saleYn,
+         pro_used_yn usedYn,
+         pro_img as img,
+         pro_discount as discount,
+         cat_no catNo,
+         pro_price as price,
+         pro_order_cnt orderCnt,
+         pro_likes_cnt likesCnt
+       FROM  
+         (select 
+            PRO_NO, 
+            PRO_NAME, 
+            PRO_PRICE, 
+            PRO_SIMPLE, 
+            PRO_IMG, 
+            PRO_STOCK, 
+            PRO_DISCOUNT, 
+            PRO_SALE_YN, 
+            PRO_USED_YN, 
+            PRO_CREATE_DATE, 
+            CAT_NO, 
+            PRO_ORDER_CNT, 
+            PRO_LIKES_CNT,
+            row_num
+         from (
+            select 
+               row_number() over (order by pro_order_cnt desc ) as row_num,  
+               PRO_NO, 
+               PRO_NAME, 
+               PRO_PRICE, 
+               PRO_SIMPLE, 
+               PRO_IMG, 
+               PRO_STOCK, 
+               PRO_DISCOUNT, 
+               PRO_SALE_YN, 
+               PRO_USED_YN, 
+               PRO_CREATE_DATE, 
+               CAT_NO, 
+               PRO_ORDER_CNT, 
+               PRO_LIKES_CNT
+             from products
+             where pro_used_yn = 'Y') A
+         where A.row_num &lt;= 20)
+      ORDER BY 
+         DBMS_RANDOM.VALUE)
+   WHERE  
+      rownum  &lt;= 4
+   </select>
+<!-- 늘 사는것 탑 20개 중에 랜덤 4개 조회하기 -->  
+<select id="getMainProductByLikes" resultClass="product" >
+   SELECT       
+         no,
+         name,
+         saleYn,
+         img,
+         price,
+         usedYn,
+         catNo,
+         orderCnt,
+         discount,
+         (price - round(price*discount, -1)) discountPrice,
+         likesCnt
+   FROM   
+      (SELECT 
+         pro_no no, 
+         pro_name name,
+         pro_sale_yn saleYn,
+         pro_used_yn usedYn,
+         pro_img as img,
+         pro_discount as discount,
+         cat_no catNo,
+         pro_price as price,
+         pro_order_cnt orderCnt,
+         pro_likes_cnt likesCnt
+       FROM  
+         (select 
+            PRO_NO, 
+            PRO_NAME, 
+            PRO_PRICE, 
+            PRO_SIMPLE, 
+            PRO_IMG, 
+            PRO_STOCK, 
+            PRO_DISCOUNT, 
+            PRO_SALE_YN, 
+            PRO_USED_YN, 
+            PRO_CREATE_DATE, 
+            CAT_NO, 
+            PRO_ORDER_CNT, 
+            PRO_LIKES_CNT,
+            row_num
+         from (
+            select 
+               row_number() over (order by pro_likes_cnt desc ) as row_num,  
+               PRO_NO, 
+               PRO_NAME, 
+               PRO_PRICE, 
+               PRO_SIMPLE, 
+               PRO_IMG, 
+               PRO_STOCK, 
+               PRO_DISCOUNT, 
+               PRO_SALE_YN, 
+               PRO_USED_YN, 
+               PRO_CREATE_DATE, 
+               CAT_NO, 
+               PRO_ORDER_CNT, 
+               PRO_LIKES_CNT
+             from products
+             where pro_used_yn = 'Y') A
+         where A.row_num &lt;= 20)
+      ORDER BY 
+         DBMS_RANDOM.VALUE)
+   WHERE  
+      rownum  &lt;= 4
+   </select>
+</sqlMap>

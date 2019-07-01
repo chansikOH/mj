@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" 
+	"http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap>
+	<!-- pro_no 번호로 product 찾는 쿼리문 (만들어두면 나중에 써먹음) -->
+	<select id="getProImg" parameterClass="int" resultClass="product">
+		select
+			pro_no as no,
+			
+	</select>
+	<select id="getMypoint" parameterClass="map" resultClass="mypoint">
+		select 
+			point_no as pointNo, 
+			point_content as pointContent, 
+			point_amount as pointAmount, 
+			point_status as pointStatus,
+			point_create_date as pointCreateDate, 
+			cust_id as custId,
+			nvl(order_no, 0) as orderNo
+		from
+			(select row_number() over(order by point_create_date desc) as row_no, A.* 
+			from point_histories A) 
+		where
+			row_no >= #beginIndex# and row_no &lt;= #endIndex#
+			and cust_id = #id#
+	</select>
+	
+	<select id="getMypointRecords" parameterClass="map" resultClass="int">
+		select count(*)
+		from point_histories
+		where cust_id = #id#
+	</select>
+	
+	<select id="getOrderListProduct" parameterClass="map" resultClass="orderList">
+		select 
+			V.order_no orderNo, 
+			V.pro_no proNo, 
+			V.pro_name proName, 
+			V.order_status orderStatus, 
+			V.order_create_Date orderCreateDate, 
+			V.pro_img proImg, 
+			V.orderprice,
+			(select count(*) from order_pro where order_no = V.order_no) cnt
+		from (select B.order_no, C.pro_no, C.pro_name, B.order_status, B.order_create_date, C.pro_img, B.orderprice,
+					 row_number() over(partition by A.order_no order by A.pro_no) as row_num
+			  from order_pro A, orders B, products C
+			  where A.order_no = B.order_no
+					and A.pro_no = C.pro_no
+					and B.cust_id = #id#
+					<dynamic>
+						<isNotNull property="year">
+							<isEqual property="year" compareValue="1">
+								and to_char(order_create_date, 'yyyy') = (to_char(sysdate, 'yyyy'))
+							</isEqual>
+							<isEqual property="year" compareValue="2">
+								and to_char(order_create_date, 'yyyy') = (to_char(sysdate, 'yyyy') -1)
+							</isEqual>
+							<isEqual property="year" compareValue="3">
+								and to_char(order_create_date, 'yyyy') = (to_char(sysdate, 'yyyy') -2)
+							</isEqual>
+						</isNotNull>
+					</dynamic>) V
+		where row_num = 1
+			  and row_num >= #beginIndex# and row_num &lt;= #endIndex#
+		order by orderCreateDate desc
+	</select>
+	
+	<select id="getOrderListRecords" parameterClass="map" resultClass="int">
+		select count(*)
+		from (select 
+				A.order_no orderNo, 
+				A.order_status orderStatus, 
+				A.totalprice, 
+				A.discountprice, 
+				A.used_point usedPoint, 
+				A.deliveryfee, 
+				A.orderprice, 
+				A.used_point usedPoint, 
+				C.del_receiver delReceiver, 
+				A.order_create_date orderCreateDate, 
+				C.del_phone_number delPhone, 
+				C.del_address delAddress, 
+				C.del_message delMessage,
+				A.cust_id
+			from 
+				orders A, delivery C
+			where 
+				A.del_no = C.del_no)
+		where cust_Id = #id#
+			<dynamic>
+				<isNotNull property="year">
+					<isEqual property="year" compareValue="1">
+						and to_char(orderCreateDate, 'yyyy') = (to_char(sysdate, 'yyyy'))
+					</isEqual>
+					<isEqual property="year" compareValue="2">
+						and to_char(orderCreateDate, 'yyyy') = (to_char(sysdate, 'yyyy') -1)
+					</isEqual>
+					<isEqual property="year" compareValue="3">
+						and to_char(orderCreateDate, 'yyyy') = (to_char(sysdate, 'yyyy') -2)
+					</isEqual>
+				</isNotNull>
+			</dynamic>
+	</select>
+	
+	<select id="getOrderDetailProduct" parameterClass="map" resultClass="orderList">
+		select
+			orderNo, proImg, proName, proPrice, cartAmount, orderStatus, custId
+		from
+			order_detail_view_pro 
+		where 
+			custId = #id# and orderNo = #orderNo#
+	</select>
+	
+	<select id="getOrderDetailInfo" parameterClass="map" resultClass="orderList">
+		select 
+			A.order_no orderNo, 
+			A.order_status orderStatus, 
+			A.totalprice, 
+			A.discountprice, 
+			A.deliveryfee, 
+			A.orderprice, 
+			A.used_point usedPoint, 
+			C.del_receiver delReceiver, 
+			A.order_create_date orderCreateDate, 
+			C.del_phone_number delPhone, 
+			C.del_address delAddress, 
+			C.del_message delMessage,
+			B.point_amount pointAmount
+		from 
+			orders A, point_histories B, delivery C
+		where 
+			A.del_no = C.del_no and A.order_no = B.order_no
+			and B.point_status = '적립'
+			and A.cust_id = #id#
+			and A.order_no = #orderNo#
+	</select>
+	
+	<update id="modifyMyInfo" parameterClass="customer">
+		update customers
+		set
+			cust_pwd = #pwd#,
+			cust_name = #name#,
+			cust_email = #email#,
+			cust_phone_number = #phoneNumber#,
+			cust_address = #address#,
+			cust_gender = #gender#,
+			cust_birthday = #birthday#,
+			cust_agree = #agree#
+		where 
+			cust_id = #id#
+	</update>
+	
+	<!-- 이하 지원 -->
+	<!--  찜하기 관련 sql문 -->
+	<insert id="insertLike" parameterClass="kr.co.mj.vo.LikesProduct">
+	insert into LIKES_PRODUCTS (
+	   LIK_NO, 
+	   PRO_NO, 
+	   CUST_ID
+	   ) VALUES (likes_seq.nextval, #proNo#, #custId#)
+	</insert>
+	
+	<delete id="deleteLike" parameterClass="kr.co.mj.vo.LikesProduct">
+	delete from LIKES_PRODUCTS where CUST_ID=#custId# and PRO_NO=#proNo#
+	</delete>
+	
+	<delete id="deleteAllLikes" parameterClass="string">
+	delete from LIKES_PRODUCTS where CUST_ID=#custId#
+	</delete>
+	
+	<select id="getLikedProductsById" parameterClass="string" resultClass="product">
+	select
+		PRO_NAME as name,
+		PRO_PRICE as price,
+		PRO_IMG as img,
+		PRO_NO as no
+	from PRODUCTS
+	where PRODUCTS.PRO_NO in (select PRO_NO from LIKES_PRODUCTS where CUST_ID=#custId#)
+	</select>
+	
+	<select id="getlikedProductByIdAndNo" parameterClass="map" resultClass="likesproduct">
+		select 
+			lik_no no,
+			pro_no proNo,
+			cust_id custId,
+			lik_create_date createDate
+		from
+			likes_products
+		where
+			pro_no = #proNo#
+		and 
+			cust_id = #custId#
+	</select>
+	
+	<!-- 해당 ID의 리뷰작성 가능한 개수-->
+	<select id="getBeforeAmountById" parameterClass="string" resultClass="int">
+		select count(*)
+		from order_pro A, orders B, products C
+	  	where A.order_no = B.order_no
+			and A.pro_no = C.pro_no
+			and B.cust_id = #value#
+			and ORDER_STATUS = '배송완료'
+	</select>
+	
+	<!-- 해당 ID의 리뷰작성 완료한 개수-->
+	<select id="getAfterAmountById" parameterClass="string" resultClass="int">
+		select count(*)
+		from REVIEWS
+		where CUST_ID = #value#
+	</select>
+	
+
+	<!--  리뷰 관련 sql문 -->
+	<!-- 찬식 -->
+	<update id="updateReview" parameterClass="review">
+		update reviews 
+		set
+			review_content = #content#,
+			review_title = #title#,
+			review_likes = #likes#,
+			review_view = #view#,
+			pro_no = #proNo#,
+			cust_id = #custId#,
+			review_img = #img#,
+			review_used_yn = #usedYn#
+		where
+			review_no = #no#
+	</update>
+
+	<select id="getReviewByNo" parameterClass="int" resultClass="review">
+		select
+			review_no no,
+			review_content content,
+			review_create_date createDate,
+			review_title title,
+			review_likes likes,
+			review_view "view",
+			pro_no proNo,
+			cust_id custId,
+			review_img img,
+			review_used_yn usedYn
+		from
+			reviews
+		where
+			review_no = #no#
+	</select>
+	
+	<select id="getReviewLikesByAll" parameterClass="map" resultClass="reviewlikes">
+		select 
+			cust_id custId,
+			review_no reviewNo
+		from 
+			review_likes
+		where
+			cust_id = #loginId# and review_no = #reviewNo#
+	</select>
+	
+	<insert id="insertReviewLikes" parameterClass="map">
+		insert into review_likes(cust_id, review_no)
+		values(#loginId#, #reviewNo#)
+	</insert>
+	
+	<!-- 지원 -->
+	<!-- 리뷰 전 --> <!-- 0604 지민 수정함. -->
+	<select id="getWritableProducts" parameterClass="int" resultClass="product">
+		select pro_name as name, pro_img as img , pro_no as no
+		from PRODUCTS
+		where pro_no in (SELECT pro_no
+						from ORDER_PRO A, ORDERS B
+						where A.ORDER_NO=B.ORDER_NO
+						and A.order_no= #value#
+						)
+	</select>
+
+	<select id="getWritableOrders" parameterClass="string" resultClass="int">
+			select order_no
+			            from orders
+			            where cust_id = #value#
+			            and order_status = '배송완료'
+           				 minus
+		                select order_no
+		                from reviews
+	</select>
+
+	<select id="getdelfinorderlist" parameterClass="string" resultClass="orderlist">
+		select 
+			A.order_no orderNo, 
+			C.pro_no proNo, 
+			C.pro_name proName, 
+			B.order_status orderStatus, 
+			B.order_create_Date orderCreateDate, 
+			C.pro_img proImg, 
+			B.orderprice orderPrice
+		from order_pro A, orders B, products C
+	  	where A.order_no = B.order_no
+			and A.pro_no = C.pro_no
+			and B.cust_id = #value#
+			and ORDER_STATUS = '배송완료'
+	</select>
+
+
+
+	<!--리뷰 작성-->
+	<insert id="insertReview" parameterClass="kr.co.mj.vo.Review">
+		insert into REVIEWS (
+			REVIEW_NO,
+			REVIEW_TITLE,
+			REVIEW_CONTENT,
+			PRO_NO,
+			CUST_ID,
+			REVIEW_IMG
+			) VALUES (reviews_seq.nextval, #title#, #content#, #proNo#, #custId#, #img#)
+	</insert>
+	
+	<!--리뷰 후-->
+	<select id="getFinishedReviewsById" parameterClass="string" resultClass="kr.co.mj.vo.Review">
+	<!-- 	select review_title as title,
+				review_content as content,
+				review_likes as likes,
+				review_img as img
+		from reviews
+		where cust_id = #value# -->
+		
+		select B.REVIEW_TITLE as title,
+				B.REVIEW_IMG as img,
+				B.REVIEW_CONTENT as content,
+				B.REVIEW_LIKES as likes,
+				A.PRO_NO as proNo,
+				A.PRO_NAME as proName,
+				B.CUST_ID as custId,
+				B.review_no as no,
+				B.review_used_yn as usedYn
+		from PRODUCTS A , REVIEWS B
+		where A.PRO_NO = B.PRO_NO
+		and B.CUST_ID= #value#
+	</select>
+	
+	<!-- 탈퇴 관련, 지원 -->
+	<insert id="addCustQuitInfo" parameterClass="quitinfo">
+		insert into cust_quit_info(
+			quit_id,
+			service,
+			delivery,
+			refund,
+			frequency,
+			price,
+			privacy,
+			trust,
+			site,
+			advice
+		) values (
+			#quitId#, #service#, #delivery#, #refund#, #frequency#, #price#, #privacy#, #trust#, #site#, #advice#
+		)
+			
+	</insert>
+	
+	<!--탈퇴 시 customers 테이블에서 해당 레코드 값의 cust_used_yn 값 변경-->
+	<update id="updateUsedYn" parameterClass="String">
+		update CUSTOMERS set CUST_USED_YN = 'N' where CUST_ID = #value#
+	</update>
+</sqlMap>

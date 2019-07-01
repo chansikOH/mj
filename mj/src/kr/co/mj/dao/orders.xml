@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" 
+	"http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>	
+	<select id="getAllCartByCustid" parameterClass="string" resultClass="kr.co.mj.vo.Cart">
+		select 
+			cart_no 			as cartNo,
+        	cart_amount 		as cartAmount,
+        	pro_no 				as proNo,
+        	cust_id 			as custId,
+ 			cart_create_date 	as createDate
+		from 
+			cart
+		where 
+			cust_id = #value#
+	</select>
+
+	<insert id="addProductIntoTheCart" parameterClass="kr.co.mj.vo.Cart">
+		insert into cart (cart_no, cart_amount, pro_no, cust_id)
+		values(cart_seq.nextval, #cartAmount#, #proNo#, #custId#)
+	</insert>
+	
+	<insert id="insertProintoCart" parameterClass="kr.co.mj.vo.Cart">
+		insert into cart 
+		values(#cartNo#, 
+		       #cartAmount#, 
+		       #proNo#,  
+		       #custId#, 
+		       #createDate# )  
+	</insert>
+	
+	<select id="getAllCartInfo" parameterClass="string" resultClass="kr.co.mj.vo.CartInfo">
+		select 
+			p.pro_no 		as proNo,
+			p.pro_img 		as img,
+			p.pro_name 		as proName,
+			p.pro_price 	as proPrice,
+			p.pro_sale_yn   as saleYn, 
+			p.pro_used_yn   as UsedYn, 
+			round(p.pro_price*p.pro_discount, -1) as discount, 
+			c.cart_no 		as cartNo,
+			c.cart_amount   as cartAmount
+		from 
+			cart c, products p
+		where 
+			c.pro_no = p.pro_no
+		and 
+			c.cust_id = #value#
+		order by 
+			UsedYn desc
+	</select>	
+	
+	<delete id="deleteCartProduct" parameterClass="int">
+		delete from cart 
+		where cart_no = #value# 
+	</delete>
+	
+	<delete id="deleteAllProduct" parameterClass="string">
+		delete cart 
+		where cust_id = #value#
+	</delete>
+	
+	<select id="getCartByCartNo" parameterClass="int" resultClass="kr.co.mj.vo.Cart">
+		select 
+			cart_no 			as cartNo,
+        	cart_amount 		as cartAmount,
+        	pro_no 				as proNo,
+        	cust_id 			as custId,
+ 			cart_create_date 	as createDate
+		from 
+			cart
+		where 
+			cart_no = #value#	
+	</select>
+	
+	<update id="updateProAmount" parameterClass="kr.co.mj.vo.Cart">
+		update cart
+		set cart_amount = #cartAmount#
+		where cart_no = #cartNo#
+	</update>
+	
+	<delete id="deleteSoldoutPro">
+		delete ( select *
+		     	 from cart c, products p 
+		 		 where c.pro_no = p.pro_no )
+		where pro_used_yn = 'N'
+	</delete>
+	
+	<select id="getShortCartInfo" parameterClass="string" resultClass="kr.co.mj.vo.ShortCartInfo">
+		select 
+			X.pro_name as proName, 	
+			(select count(*) from cart c where c.cust_id = X.cust_id ) as cartProAmount
+		from	
+			(select p.pro_name, 
+				    p.pro_no, 
+			        c.cust_id, 
+		            row_number() over (partition by c.cust_id order by p.pro_name) as row_no
+		     from cart c, products p
+		     where c.pro_no = p.pro_no
+		     and p.pro_used_yn = 'Y') X
+		where X.cust_id = #value#
+		and row_no = 1 		
+	</select>
+	
+	<!-- 오찬식 / 해당 아이디의 장바구니 개수 반환 -->
+	<select id="getCartCountByCustId" parameterClass="string" resultClass="int">
+		select
+			count(C.cart_no)
+		from
+			cart C, products P
+		where
+			C.pro_no = P.pro_no
+		and
+			P.pro_used_yn = 'Y'
+		and
+			cust_id = #value#
+	</select>
+	
+	<!-- 오찬식 / 아이디와 상품번호가 모두 같은 장바구니 반환 -->
+	<select id="getCartByCustIdAndProNo" parameterClass="map" resultClass="kr.co.mj.vo.Cart">
+		select
+			cart_no cartNo,
+			cart_amount cartAmount,
+			pro_no proNo,
+			cust_id custId,
+			cart_create_date createDate
+		from
+			cart
+		where
+			pro_no = #proNo#
+		and
+			cust_id = #custId#
+	</select>
+	
+	<select id="getCartInfoByCartNo" parameterClass="int" resultClass="kr.co.mj.vo.CartInfo">
+		select 
+			p.pro_no 			as proNo,
+			p.pro_img 			as img,
+			p.pro_name 			as proName,
+			p.pro_price 		as proPrice,
+			p.pro_sale_yn  	    as saleYn, 
+			p.pro_used_yn   	as UsedYn, 
+			c.cart_no 			as cartNo,
+			c.cart_amount   	as cartAmount
+		from 
+			cart c, products p
+		where 
+			c.pro_no = p.pro_no
+		and 
+			c.cart_no = #value#
+	</select>
+	
+	<select id="getCustomerByCustid" parameterClass="string" resultClass="kr.co.mj.vo.Customers">
+	
+	</select>
+		
+</sqlMap>
+
